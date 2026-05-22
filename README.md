@@ -1,5 +1,7 @@
 # From Inbox to Action — A Mistral Workflow for Support
 
+[![Watch the demo](https://img.youtube.com/vi/4-l-yOpV4vo/maxresdefault.jpg)](https://youtu.be/4-l-yOpV4vo)
+
 A durable [Mistral Workflows](https://mistral.ai/news/workflows) project that triages incoming support emails for founders, indie hackers, and small teams.
 
 Email in, structured JSON out, with optional Devstral-powered code analysis when the sender reports a bug against your codebase. Designed for indie founders who would rather ship features than write canned responses.
