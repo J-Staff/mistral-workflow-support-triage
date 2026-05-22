@@ -1,0 +1,9 @@
+{
+  "email_id": "msg-2026-05-22-006",
+  "sender_email": "alex@example-modeling.com",
+  "sender_name": "Alex",
+  "subject": "Auto-insert dragged element into hovered lane's sequence flow",
+  "body": "When I drag a new element from the toolbar onto the canvas and hover over an existing lane that already has a sequence flow, I'd love the element to be automatically spliced into that flow at the hover position. Right now I have to drop the element, then manually connect the predecessor and successor edges.",
+  "received_at": "2026-05-22T18:30:00Z",
+  "codebase_path": null
+}

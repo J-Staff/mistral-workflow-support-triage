@@ -1,0 +1,9 @@
+{
+  "email_id": "msg-2026-05-20-004",
+  "sender_email": "finance@kraus-engineering.com",
+  "sender_name": "Markus Kraus",
+  "subject": "Double charge on invoice INV-2026-04231 - need refund",
+  "body": "Hello,\n\nyour system charged my card twice for the April Pro subscription. Stripe shows two separate transactions on April 30, both for 49 EUR, transaction IDs ending in -a8f2 and -b3c1.\n\nI have already opened a dispute with my bank but would prefer to handle this directly with you. Please refund the duplicate charge (49 EUR) within 5 business days, otherwise my finance team will require us to switch providers.\n\nAttached is the Stripe statement. Our customer ID is cus_PqR2xLn88kF and the invoice in question is INV-2026-04231.\n\nWe are on the Pro plan for our 4-person modeling team and otherwise satisfied with the product, so I would rather resolve this than churn.\n\nThanks,\nMarkus Kraus\nFinance, Kraus Engineering GmbH",
+  "received_at": "2026-05-20T08:22:11Z",
+  "codebase_path": null
+}

@@ -1,0 +1,9 @@
+{
+  "email_id": "msg-2026-05-20-001",
+  "sender_email": "alex.mueller@acme-corp.dev",
+  "sender_name": "Alex Mueller",
+  "subject": "URGENT: BPMN editor down in production, 23 users blocked",
+  "body": "Hi support,\n\nOur entire BPMN modeling team (23 active users) cannot open the editor since this morning. We are on the Team plan and this is blocking our compliance audit deadline tomorrow.\n\nSteps to reproduce:\n1. Log into acme-bpmn.com with any Team-plan account\n2. Open any existing Auftragsfreigabe process\n3. Click 'Edit' on the canvas\n4. Page goes blank, then shows: '500 Internal Server Error - JWT decode failed'\n\nBrowser console shows:\n  TypeError: Cannot read properties of undefined (reading 'token')\n  at AuthMiddleware.verify (/auth/login.py:42)\n  Status: 500\n\nApp version: v3.3.0\nBrowser: Chrome 124 on Windows 11\nFirst occurrence: 2026-05-20 09:14 UTC\n\nThe Gateway nodes in our exception-handling lane are still visible in read-only mode but every edit operation 500s. This is critical - we have a regulator on-site at 14:00 and need this back up.\n\nPlease escalate.\n\nAlex",
+  "received_at": "2026-05-20T09:18:42Z",
+  "codebase_path": null
+}

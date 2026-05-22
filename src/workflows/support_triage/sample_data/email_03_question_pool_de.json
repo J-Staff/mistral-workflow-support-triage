@@ -1,0 +1,9 @@
+{
+  "email_id": "msg-2026-05-20-003",
+  "sender_email": "tom.schneider92@gmail.com",
+  "sender_name": "Tom",
+  "subject": "Frage: Wie erstelle ich eigene Pools?",
+  "body": "Hi,\n\nbin neu bei Acme und teste gerade den kostenlosen Plan. Ich versuche einen Prozess zu modellieren wo Kunde und Sales-Team zusammenarbeiten. Verstehe ich richtig dass ich dafuer zwei Pools brauche?\n\nWenn ja, wie erstelle ich einen zweiten Pool im Editor? Ich finde nur die Lanes innerhalb des einen Pools.\n\nDanke fuer kurze Hilfe!\n\nTom",
+  "received_at": "2026-05-20T13:08:55Z",
+  "codebase_path": null
+}

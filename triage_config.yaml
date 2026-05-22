@@ -1,0 +1,324 @@
+# Solo Support Triage configuration.
+#
+# Edit this file to adapt the workflow to your product. Every block below
+# is consumed at worker startup via src/workflows/support_triage/config.py.
+# The defaults match the README walkthrough; override what makes sense for
+# your domain.
+#
+# After changing this file, restart the worker so the new config is picked up.
+
+
+# ---------------------------------------------------------------------------
+# Model selection per step
+# ---------------------------------------------------------------------------
+# Any model available in your Mistral workspace works. Pick smaller/faster
+# models for cheap classification, larger ones for reply drafting, and
+# Devstral / Codestral for code-analysis steps.
+models:
+  metadata_extraction: mistral-small-latest      # sentiment, language, urgency keywords
+  intent_detection: mistral-small-latest          # which category does this email fall into
+  entity_extraction: mistral-small-latest         # error strings, features, versions, repro steps
+  custom_output_extraction: mistral-large-latest  # typed custom outputs (enum, integer, optional)
+  reply_drafting: mistral-large-latest            # nuanced reply in the sender's language
+  code_ranking: devstral-2512                     # which files in the repo are suspect
+  code_fix_proposal: devstral-2512                # generate 2-4 fix options
+
+
+# ---------------------------------------------------------------------------
+# Intent categories
+# ---------------------------------------------------------------------------
+# Add, rename, or remove categories to match how YOUR team triages tickets.
+# Each `name` becomes the canonical string in TriageReport.category. The
+# `description` is shown to the LLM verbatim, so write it like guidance to a
+# new support hire.
+#
+# At least one category is required. We recommend keeping a "spam" and
+# "other" bucket so the LLM always has a valid fallback.
+categories:
+  - name: bug
+    description: "Something is broken or behaves unexpectedly. Includes error messages, crashes, 500s, regressions."
+  - name: feature_request
+    description: "User asks for a new capability that does not exist yet."
+  - name: question
+    description: "User wants to know how to do something. No bug, just a how-to."
+  - name: billing
+    description: "Invoices, refunds, plan changes, payment failures, subscription questions."
+  - name: spam
+    description: "Unsolicited sales, phishing, SEO outreach, generic cold mail, off-topic."
+  - name: other
+    description: "Real-but-uncategorizable. Use sparingly; prefer a specific category if possible."
+
+
+# ---------------------------------------------------------------------------
+# Structured entities to extract from the email body
+# ---------------------------------------------------------------------------
+# Each entity becomes a list[str] field on the EmailEntities output. Pick
+# fields that you want to feed into downstream automation. Examples beyond
+# the defaults:
+#   - customer_ids:   "Internal customer or tenant IDs the sender mentions"
+#   - shipment_ids:   "Tracking numbers or shipment references"
+#   - feature_flags:  "Names of feature flags or A/B test variants"
+#   - urls:           "URLs pasted by the sender"
+#
+# The LLM is told to ONLY include items literally present in the text, so
+# adding many empty-result entities is cheap.
+entities:
+  - name: error_messages
+    description: "Verbatim error strings, stack traces, HTTP status codes (e.g. '500 Internal Server Error', 'TypeError: ...', 'connection refused'). Empty list when no error is quoted."
+  - name: mentioned_features
+    description: "Product feature names the sender refers to (e.g. 'login', 'checkout', 'BPMN editor', 'export to PDF'). De-duplicate. Empty list if no specific feature is named."
+  - name: mentioned_versions
+    description: "Software, app, browser, OS, or library version numbers. Examples: 'v3.3.0', 'Chrome 124', 'Windows 11', 'Python 3.12'. Do NOT include plan/subscription tiers (Pro-Plan, Team-Plan, Free-Plan) here, those go into custom_outputs.customer_tier. Empty list if no version is quoted."
+  - name: reproduction_steps
+    description: "Numbered or bulleted steps the sender provided to reproduce the issue. Each entry is one full step. Empty list if no repro is given."
+
+
+# ---------------------------------------------------------------------------
+# Custom output fields (TYPED)
+# ---------------------------------------------------------------------------
+# Beyond the generic list[str] entities above, you can declare domain-specific
+# output fields with explicit types. Each field becomes a top-level key in
+# TriageReport.custom_outputs and is extracted by the LLM in its own activity
+# with a dedicated prompt.
+#
+# Supported types:
+#   - string             → plain str (empty string if absent)
+#   - list_string        → list[str] (empty list if absent)
+#   - integer            → int (null if absent and required=false)
+#   - float              → float (null if absent and required=false)
+#   - boolean            → bool (null if absent and required=false)
+#   - enum               → str validated against the `values` list
+#
+# Optional fields:
+#   - required (bool)    → if true, the LLM must produce a non-null value
+#   - values (list[str]) → only for `type: enum`
+#
+# This is the place to teach the workflow about YOUR product. The examples
+# below are for a BPMN-tooling vendor. Replace them with whatever
+# matters in your domain: SKU IDs, customer tiers, shipment numbers,
+# feature-flag names, AI-model names mentioned, plan tier, etc.
+custom_outputs:
+  - name: bpmn_process
+    type: string
+    required: false
+    description: "Name of the BPMN process the customer references by NAME in the email body. Examples: 'Order Approval', 'Customer Onboarding', 'Invoice Processing', 'Incident Response'. Return null if no process is named. Do NOT invent a process name from the topic of the email."
+
+  - name: bpmn_node_types
+    type: list_string
+    description: "MECHANICAL SUBSTRING MATCH. Scan the email body and for EACH of these words/phrases (case-insensitive), if it appears AT LEAST ONCE, add the canonical form to the output list. Canonical forms: 'Task', 'Gateway', 'Exclusive Gateway', 'Inclusive Gateway', 'Parallel Gateway', 'Event Gateway', 'Event', 'Start Event', 'End Event', 'Boundary Event', 'Pool', 'Lane', 'Subprocess', 'Call Activity'. Examples: text 'we use a Gateway here' → include 'Gateway'. Text 'mehrere Exclusive Gateways' → include 'Exclusive Gateway'. Text contains neither 'Gateway' nor 'Task' nor any other listed term → output []. De-duplicate the list. Do not think about meaning, just match substrings."
+
+  - name: affected_lanes
+    type: list_string
+    description: "BPMN lanes literally named in the email text (e.g. the sender writes 'Sales lane', 'Compliance-Lane', 'Finance pool'). Do NOT add common defaults like 'Customer', 'Admin', or 'User' unless the sender uses those exact words. If no lane is named, return an empty list. Do not hallucinate."
+
+  - name: customer_tier
+    type: enum
+    values: [free, pro, team, enterprise, unknown]
+    required: false
+    description: "MECHANICAL SUBSTRING MATCH. Search the email body case-insensitively for these substrings. First match wins. If a sentence contains 'Pro-Plan', 'Pro Plan', 'Pro tier', 'on Pro', 'on the Pro plan', 'auf dem Pro-Plan', 'auf dem Pro Plan', 'Pro subscription' → OUTPUT 'pro'. If sentence contains 'Team-Plan', 'Team Plan', 'on Team', 'auf dem Team-Plan', 'Team subscription' → OUTPUT 'team'. If sentence contains 'Enterprise', 'enterprise plan' → OUTPUT 'enterprise'. If sentence contains 'free trial', 'kostenloser Plan', 'Free-Plan', 'auf dem Free' → OUTPUT 'free'. OUTPUT null ONLY when ZERO of these substrings appear in the email. Do not infer from context, do not second-guess. 'Pro-Plan' literally in the text means OUTPUT 'pro', period."
+
+  - name: affected_user_count
+    type: integer
+    required: false
+    description: "Concrete number of affected users the sender quotes, e.g. '23 users blocked' → 23, 'our 4-person team' → 4. Null if no number is given. Do not guess."
+
+  - name: is_blocker
+    type: boolean
+    required: false
+    description: "True if the sender explicitly states they are blocked or cannot proceed ('blockiert', 'blocked', 'cannot work', 'can't continue', 'down'). False if they explicitly say they have a workaround. Null when the email is ambiguous about blocker status (most feature requests and questions)."
+
+
+# ---------------------------------------------------------------------------
+# Reply drafting rules
+# ---------------------------------------------------------------------------
+# Constrain how the reply-drafting model writes responses. Edit these to
+# match your brand voice and reply policy.
+reply:
+  max_words: 180
+  tone: "warm but professional, no over-apologizing, no filler"
+  signature: ""            # appended verbatim. Empty means LLM picks its own closer.
+  promise_fix_timeline: false  # if false, the model is told NOT to promise a fix date
+  prohibited_phrases:
+    - "I am an AI"
+    - "as a language model"
+    - "I am an artificial intelligence"
+
+
+# ---------------------------------------------------------------------------
+# Human-in-the-loop trigger
+# ---------------------------------------------------------------------------
+# Conditions under which the workflow pauses for human review before
+# returning the TriageReport. Any trigger that fires causes a pause.
+hitl:
+  pause_on_urgency:
+    - high
+  pause_on_categories: []      # e.g. [billing, bug] to always require a human for those
+  pause_on_low_confidence_below: 0.6   # intent confidence below this triggers a pause
+
+
+# ---------------------------------------------------------------------------
+# Code-analysis scope (only used when category=bug AND codebase_path provided)
+# ---------------------------------------------------------------------------
+code_analysis:
+  # Absolute filesystem path to the codebase the worker analyzes bug reports
+  # against. This is the SERVER-SIDE configuration: in a typical deployment
+  # you have one codebase (your product), and every triggered workflow runs
+  # against the same directory.
+  #
+  # Set to a real local path BEFORE triggering bug emails, e.g.:
+  #   /opt/your-product/repo            (production VM with git pull)
+  #   /home/you/code/your-product       (your dev workstation)
+  #   /path/to/checked-out/repo         (any local clone)
+  #
+  # Leave empty/null to disable code analysis globally. EmailInput.codebase_path
+  # can still override this per-trigger (useful for multi-tenant setups).
+  codebase_path: null
+
+  # Categories that should trigger the code-inspection sub-workflow. Most teams
+  # want at least `bug` here. Add `feature_request` so Devstral also estimates
+  # implementation impact for new-feature emails. Other valid entries depend on
+  # your `categories` block above.
+  trigger_on_categories:
+    - bug
+    - feature_request
+
+  # Mode mapping. The sub-workflow runs Devstral with mode-specific prompts.
+  #   - root_cause     : "find the bug, propose 2-4 surgical fixes"
+  #   - implementation : "find impacted files, propose 2-3 implementation approaches with effort + risk"
+  # Categories not listed here use mode = root_cause as the default.
+  mode_by_category:
+    bug: root_cause
+    feature_request: implementation
+
+  file_extensions:
+    - .py
+    - .ts
+    - .tsx
+    - .js
+    - .jsx
+    - .go
+    - .rs
+    - .java
+    - .rb
+  skip_directories:
+    - .git
+    - node_modules
+    - __pycache__
+    - .venv
+    - dist
+    - build
+  max_candidates_to_devstral: 30
+  max_files_per_analysis: 8
+  max_bytes_per_file: 8000
+
+
+# ---------------------------------------------------------------------------
+# Sentiment values (closed set)
+# ---------------------------------------------------------------------------
+# Order matters for prompts; keep the most neutral one in the middle.
+sentiments:
+  - positive
+  - neutral
+  - negative
+  - angry
+
+
+# ---------------------------------------------------------------------------
+# Languages (closed set)
+# ---------------------------------------------------------------------------
+# ISO-639-1 codes. Add any language your customers write in. The "other"
+# fallback is always allowed.
+languages:
+  - en
+  - de
+  - fr
+  - es
+  - other
+
+
+# ---------------------------------------------------------------------------
+# Urgency rules
+# ---------------------------------------------------------------------------
+# The workflow runs a deterministic Python rule against the LLM signals to
+# decide urgency. No model call here on purpose: routing must be auditable.
+urgency:
+
+  # If any of these strings appears (case-insensitive) in the urgency_keywords
+  # the metadata-extraction LLM returned, urgency is set to "high".
+  high_keywords:
+    - down
+    - outage
+    - lost data
+    - data loss
+    - cannot log in
+    - "can't log in"
+    - broken
+    - urgent
+    - critical
+    - emergency
+    - asap
+    - production
+    - payment failed
+    - refund
+
+  # If the metadata sentiment is in this list, urgency is "high" regardless of keywords.
+  high_sentiments:
+    - angry
+
+  # When category falls into one of these AND sentiment is negative, urgency is "high".
+  bug_negative_to_high:
+    - bug
+
+  # Categories that default to "medium" urgency when no high signal fires.
+  medium_categories:
+    - bug
+    - billing
+
+
+# ---------------------------------------------------------------------------
+# Routing rules
+# ---------------------------------------------------------------------------
+# Map (category, urgency) to a downstream queue name. Rules are evaluated
+# top-to-bottom; the first match wins. `default` is used when nothing matches.
+#
+# Use queue names that exist in YOUR downstream system (Linear projects,
+# Slack channels, on-call rotations). The LLM never sees these names.
+routing:
+  rules:
+    - match: { category: spam }
+      queue: trash
+    - match: { category: billing }
+      queue: billing-queue
+    - match: { category: bug, urgency: high }
+      queue: oncall
+    - match: { category: bug }
+      queue: engineering-backlog
+    - match: { category: feature_request }
+      queue: product-backlog
+    - match: { category: question }
+      queue: support-fast-track
+  default: manual-review
+
+
+# ---------------------------------------------------------------------------
+# Suggested action templates
+# ---------------------------------------------------------------------------
+# Free-form list of action strings written into TriageReport.suggested_actions
+# per (category, urgency). Keys are joined with "-", e.g. "bug-high". The
+# generic "default" actions are appended to every result. Your downstream
+# automation reads this list and decides what to actually execute.
+suggested_actions:
+  bug:
+    - create_linear_issue
+    # attach_fix_options_to_issue is appended automatically when the
+    # code-analysis sub-workflow ran successfully.
+  bug-high:
+    - page_oncall
+  feature_request:
+    - add_to_product_board
+  billing:
+    - route_to_billing
+  spam:
+    - mark_as_spam
+  default:
+    - send_reply_after_review

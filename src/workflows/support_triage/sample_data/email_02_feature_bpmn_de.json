@@ -1,0 +1,9 @@
+{
+  "email_id": "msg-2026-05-20-002",
+  "sender_email": "j.weber@beratung-weber.de",
+  "sender_name": "Julia Weber",
+  "subject": "Feature-Wunsch: Compliance-Lane fuer ISO-9001-Audits",
+  "body": "Hallo Acme-Team,\n\nwir nutzen euer Tool seit drei Monaten auf dem Pro-Plan und sind sehr zufrieden. Eine Idee fuer eine Erweiterung:\n\nFuer unsere ISO-9001-Audits brauchen wir einen neuen BPMN-Knotentyp fuer Compliance-Checks. Konkret waere das ein spezialisiertes Gateway, das automatisch Audit-Trails generiert wenn der Prozess durch eine Compliance-Lane laeuft (z.B. Vier-Augen-Pruefung, Freigabe-Workflow, Datenschutzpruefung).\n\nAktuell modellieren wir das ueber normale Exclusive Gateways mit selbstgebauten Properties, aber das ist fehleranfaellig. Drei unserer Berater haben sich das schon unabhaengig gewuenscht.\n\nIst das auf eurer Roadmap? Falls ja, gerne Zeitschiene. Falls nicht, koennten wir das eventuell als Co-Development mit euch entwickeln - wir haben einen Customer-Pool von ~80 mittelstaendischen Beratungsfirmen die das ebenfalls einsetzen wuerden.\n\nVielen Dank und viele Gruesse,\nJulia Weber\nSenior Consultant, Weber Beratung GmbH",
+  "received_at": "2026-05-20T11:42:17Z",
+  "codebase_path": null
+}
