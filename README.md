@@ -2,7 +2,7 @@
 
 [![Watch the demo](https://img.youtube.com/vi/4-l-yOpV4vo/maxresdefault.jpg)](https://youtu.be/4-l-yOpV4vo)
 
-*Click the thumbnail above (or [open the link](https://youtu.be/4-l-yOpV4vo)) to watch the 2-minute demo.*
+*Click the thumbnail above (or [open the link](https://youtu.be/4-l-yOpV4vo)) to watch the demo.*
 
 A durable [Mistral Workflows](https://mistral.ai/news/workflows) project that triages incoming support emails for founders, indie hackers, and small teams.
 
